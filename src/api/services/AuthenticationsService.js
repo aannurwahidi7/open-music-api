@@ -1,5 +1,5 @@
 /* eslint-disable no-underscore-dangle */
-const Pool = require('pg');
+const { Pool } = require('pg');
 const InvariatError = require('../../exceptions/InvariantError');
 
 class AuthenticationsService {

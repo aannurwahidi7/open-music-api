@@ -3,22 +3,25 @@ const { Pool } = require('pg');
 const { nanoid } = require('nanoid');
 const InvariatError = require('../../exceptions/InvariantError');
 
-class PlaylistSongs {
-  constructor() {
+class PlaylistSongsService {
+  constructor(songsService) {
     this._pool = new Pool();
+    this._songsService = songsService;
   }
 
   async addSongToPlaylist(songId, playlistId) {
+    await this._songsService.getSongById(songId);
+
     const id = `playlistSongs-${nanoid(16)}`;
 
     const query = {
       text: 'INSERT INTO playlist_songs VALUES($1, $2, $3) RETURNING id',
-      values: [id, songId, playlistId],
+      values: [id, playlistId, songId],
     };
 
     const result = await this._pool.query(query);
 
-    if (!result.rowCount) {
+    if (!result.rows[0].id) {
       throw new InvariatError('Lagu gagal ditambahkan ke playlist');
     }
 
@@ -28,7 +31,7 @@ class PlaylistSongs {
   async getSongsFromPlaylist(playlistId) {
     const querySongs = {
       text: `SELECT s.id, s.title, s.performer FROM playlist_songs ps
-      LEFT JOIN songs s ON playlist_songs.song_id = s.id
+      LEFT JOIN songs s ON ps.song_id = s.id
       WHERE ps.playlist_id = $1 GROUP BY s.id`,
       values: [playlistId],
     };
@@ -52,4 +55,4 @@ class PlaylistSongs {
   }
 }
 
-module.exports = PlaylistSongs;
+module.exports = PlaylistSongsService;

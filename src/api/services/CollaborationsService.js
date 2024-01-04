@@ -4,11 +4,14 @@ const { Pool } = require('pg');
 const InvariatError = require('../../exceptions/InvariantError');
 
 class CollaborationsService {
-  constructor() {
+  constructor(usersService) {
     this._pool = new Pool();
+    this._usersService = usersService;
   }
 
   async addCollaboration(playlistId, userId) {
+    await this._usersService.getUserById(userId);
+
     const id = `collab-${nanoid(16)}`;
 
     const query = {
@@ -18,7 +21,7 @@ class CollaborationsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new InvariatError('Kolaborasi gagal ditambahkan');
     }
 
@@ -27,26 +30,26 @@ class CollaborationsService {
 
   async deleteCollaboration(playlistId, userId) {
     const query = {
-      text: 'DELETE FROM collaborations WHERE note_id = $1 AND user_id = $2 RETURNING id',
+      text: 'DELETE FROM collaborations WHERE playlist_id = $1 AND user_id = $2 RETURNING id',
       values: [playlistId, userId],
     };
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new InvariatError('Kolaborasi gagal dihapus');
     }
   }
 
   async verifyCollaborator(playlistId, userId) {
     const query = {
-      text: 'SELECT * FROM collaborations WHERE note_id = $1 AND user_id = $2',
+      text: 'SELECT * FROM collaborations WHERE playlist_id = $1 AND user_id = $2',
       values: [playlistId, userId],
     };
 
     const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new InvariatError('Kolaborasi gagal diverifikasi');
     }
   }

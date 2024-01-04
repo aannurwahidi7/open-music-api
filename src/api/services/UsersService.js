@@ -1,6 +1,6 @@
 /* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable no-underscore-dangle */
-const Pool = require('pg');
+const { Pool } = require('pg');
 const { nanoid } = require('nanoid');
 const bcrypt = require('bcrypt');
 
@@ -31,7 +31,7 @@ class UsersService {
       throw new InvariatError('User gagal ditambahkan');
     }
 
-    return id;
+    return result.rows[0].id;
   }
 
   async getUserById(userId) {
@@ -73,7 +73,7 @@ class UsersService {
     }
   }
 
-  async verifyUserSredentials(username, password) {
+  async verifyUserCredentials(username, password) {
     const query = {
       text: 'SELECT id, password FROM users WHERE username = $1',
       values: [username],

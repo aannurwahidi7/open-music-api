@@ -1,5 +1,5 @@
 /* eslint-disable no-underscore-dangle */
-const Pool = require('pg');
+const { Pool } = require('pg');
 const { nanoid } = require('nanoid');
 const InvariatError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
@@ -21,7 +21,7 @@ class PlaylistsService {
 
     const result = await this._pool.query(query);
 
-    if (!result.rowCount) {
+    if (!result.rows[0].id) {
       throw new InvariatError('Playlist gagal ditambahkan');
     }
 
@@ -30,9 +30,12 @@ class PlaylistsService {
 
   async getPlaylists(owner) {
     const query = {
-      text: `SELECT p.id, p.name, u.username FROM playlists
-      LEFT JOIN users u ON p.owner =  u.id
-      WHERE p.owner = $1 GROUP BY p.id`,
+      text: `SELECT p.id, p.name, u.username FROM playlists p
+      LEFT JOIN users u ON p.owner = u.id
+      LEFT JOIN collaborations c ON c.playlist_id = p.id
+      WHERE p.owner = $1 
+      OR c.user_id = $1
+      GROUP BY p.id, u.username`,
       values: [owner],
     };
 
@@ -43,9 +46,9 @@ class PlaylistsService {
 
   async getPlaylistById(playlistId) {
     const query = {
-      text: `SELECT p.id, p.name, u.username FROM playlists
+      text: `SELECT p.id, p.name, u.username FROM playlists p
       LEFT JOIN users u ON p.owner =  u.id
-      WHERE p.id = $1 GROUP BY p.id`,
+      WHERE p.id = $1 GROUP BY p.id, u.username`,
       values: [playlistId],
     };
 
@@ -60,7 +63,7 @@ class PlaylistsService {
 
   async deletePlaylist(playlistId, userId) {
     const query = {
-      text: 'DELETE FROM playlists WHERE id = $1 AND user_id = $2 RETURNING id',
+      text: 'DELETE FROM playlists WHERE id = $1 AND owner = $2 RETURNING id',
       values: [playlistId, userId],
     };
 
@@ -90,9 +93,9 @@ class PlaylistsService {
     }
   }
 
-  async verifyPlaylistAcccess(playlistId, userId) {
+  async verifyPlaylistAccess(playlistId, userId) {
     try {
-      await this.verifyNoteOwner(playlistId, userId);
+      await this.verifyPlaylistOwner(playlistId, userId);
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw error;
