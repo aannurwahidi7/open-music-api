@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 const { nanoid } = require('nanoid');
 const InvariatError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
-const { mapSongToModel, mapSongsToModel } = require('../../utils');
+const { mapSongToModel } = require('../../utils');
 
 class SongsService {
   constructor() {
@@ -29,9 +29,9 @@ class SongsService {
   }
 
   async getSongs() {
-    const result = await this.pool.query('SELECT * FROM songs');
+    const result = await this.pool.query('SELECT id, title, performer FROM songs');
 
-    return result.rows.map(mapSongsToModel);
+    return result.rows;
   }
 
   async getSongById(id) {
@@ -42,11 +42,11 @@ class SongsService {
 
     const result = await this.pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Lagu tidak ditemukan');
     }
 
-    return result.rows.map(mapSongToModel)[0];
+    return mapSongToModel(result.rows[0]);
   }
 
   async editSongById(id, {
@@ -76,7 +76,7 @@ class SongsService {
 
     const result = await this.pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Gagal memperbarui lagu. Id tidak ditemukan');
     }
   }
@@ -89,7 +89,7 @@ class SongsService {
 
     const result = await this.pool.query(query);
 
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       throw new NotFoundError('Lagu gagal dihapus. Id tidak ditemukan');
     }
   }

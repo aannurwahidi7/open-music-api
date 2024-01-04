@@ -17,10 +17,10 @@ const mapSongToModel = ({
   albumId: album_id,
 });
 
-const mapSongsToModel = (book) => ({
-  id: book.id,
-  title: book.title,
-  performer: book.performer,
-});
+// const mapSongsToModel = (book) => ({
+//   id: book.id,
+//   title: book.title,
+//   performer: book.performer,
+// });
 
-module.exports = { mapSongToModel, mapSongsToModel };
+module.exports = { mapSongToModel };
