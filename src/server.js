@@ -1,40 +1,55 @@
+/* eslint-disable no-underscore-dangle */
 require('dotenv').config();
 
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
+const Inert = require('@hapi/inert');
+const path = require('path');
+
+// const redis = require('redis');
+const config = require('./utils/config');
 
 const ClientError = require('./exceptions/ClientError');
 
 const albums = require('./api/albums');
-const AlbumsService = require('./api/services/AlbumsService');
+const AlbumsService = require('./services/AlbumsService');
 const AlbumsValidator = require('./validator/albums');
 
 const songs = require('./api/songs');
-const SongsService = require('./api/services/SongsService');
+const SongsService = require('./services/SongsService');
 const SongsValidator = require('./validator/songs');
 
 const users = require('./api/users');
-const UsersService = require('./api/services/UsersService');
+const UsersService = require('./services/UsersService');
 const UsersValidator = require('./validator/users');
 
 const authentications = require('./api/authentications');
-const AuthenticationsService = require('./api/services/AuthenticationsService');
+const AuthenticationsService = require('./services/AuthenticationsService');
 const AuthenticationsValidator = require('./validator/authentications');
 const TokenManager = require('./tokenize/TokenManager');
 
 const playlists = require('./api/playlists');
-const PlaylistsService = require('./api/services/PlaylistsService');
-const PlaylistSongsService = require('./api/services/PlaylistSongsService');
-const PlaylistSongsActivitiesService = require('./api/services/PlaylistSongsActivitiesService');
+const PlaylistsService = require('./services/PlaylistsService');
+const PlaylistSongsService = require('./services/PlaylistSongsService');
+const PlaylistSongsActivitiesService = require('./services/PlaylistSongsActivitiesService');
 const PlaylistValidator = require('./validator/playlists');
 
 const collaborations = require('./api/collaborations');
-const CollaborationsService = require('./api/services/CollaborationsService');
+const CollaborationsService = require('./services/CollaborationsService');
 const CollaborationsValidator = require('./validator/collaborations');
+
+const _exports = require('./api/exports');
+const ProducerService = require('./services/rabbitmq/ProducerService');
+const ExportsValidator = require('./validator/exports');
+
+const StorageService = require('./services/storage/StorageService');
+const UploadValidator = require('./validator/uploads');
 
 const init = async () => {
   const usersService = new UsersService();
   const collaborationsService = new CollaborationsService(usersService);
+
+  const storageService = new StorageService(path.resolve(__dirname, 'api/albums/file/images'));
   const albumsService = new AlbumsService();
   const songsService = new SongsService();
   const playlistsService = new PlaylistsService(collaborationsService);
@@ -43,8 +58,8 @@ const init = async () => {
   const authenticationsService = new AuthenticationsService();
 
   const server = Hapi.server({
-    port: process.env.PORT,
-    host: process.env.HOST,
+    port: config.app.port,
+    host: config.app.host,
     routes: {
       cors: {
         origin: ['*'],
@@ -55,6 +70,9 @@ const init = async () => {
   await server.register([
     {
       plugin: Jwt,
+    },
+    {
+      plugin: Inert,
     },
   ]);
 
@@ -80,6 +98,8 @@ const init = async () => {
       options: {
         service: albumsService,
         validator: AlbumsValidator,
+        storageService,
+        uploadValidator: UploadValidator,
       },
     },
     {
@@ -123,10 +143,19 @@ const init = async () => {
         validator: CollaborationsValidator,
       },
     },
+    {
+      plugin: _exports,
+      options: {
+        service: ProducerService,
+        validator: ExportsValidator,
+        playlistsService,
+      },
+    },
   ]);
 
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
+    console.log(response);
 
     if (response instanceof Error) {
       // penanganan error secara internal

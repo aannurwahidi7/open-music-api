@@ -1,7 +1,7 @@
 /* eslint-disable no-underscore-dangle */
 const { nanoid } = require('nanoid');
 const { Pool } = require('pg');
-const InvariatError = require('../../exceptions/InvariantError');
+const InvariatError = require('../exceptions/InvariantError');
 
 class CollaborationsService {
   constructor(usersService) {

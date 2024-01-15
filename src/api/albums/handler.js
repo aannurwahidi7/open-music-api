@@ -1,11 +1,14 @@
 /* eslint-disable no-underscore-dangle */
 // eslint-disable-next-line import/no-extraneous-dependencies
 const autoBind = require('auto-bind');
+const config = require('../../utils/config');
 
 class AlbumsHandler {
-  constructor(service, validator) {
+  constructor(service, validator, storageService, uploadValidator) {
     this._service = service;
     this._validator = validator;
+    this._storageService = storageService;
+    this._uploadValidator = uploadValidator;
 
     autoBind(this);
   }
@@ -31,13 +34,23 @@ class AlbumsHandler {
   async getAlbumByIdHandler(request) {
     const { id } = request.params;
     const album = await this._service.getAlbumById(id);
-    album.album.songs = album.songs;
+    let { cover } = album.album;
+    if (cover !== null) {
+      cover = `http://${config.app.host}:${config.app.port}/albums/${id}/covers/${album.album.cover}`;
+    }
+    const result = {
+      album: {
+        id: album.album.id,
+        name: album.album.name,
+        year: album.album.year,
+        coverUrl: cover,
+      },
+      songs: album.songs,
+    };
 
     return {
       status: 'success',
-      data: {
-        album: album.album,
-      },
+      data: result,
     };
   }
 
@@ -60,6 +73,29 @@ class AlbumsHandler {
       status: 'success',
       message: 'Album berhasil dihapus',
     };
+  }
+
+  async postAlbumImageCoverHandler(request, h) {
+    const { cover } = request.payload;
+    const { id } = request.params;
+
+    this._uploadValidator.validateImageHeaders(cover.hapi.headers);
+
+    const check = await this._service.verifyCoverImageAlbum(id);
+
+    if (check !== null) {
+      this._storageService.deleteFile(check);
+    }
+
+    const filename = await this._storageService.writeFile(cover, cover.hapi);
+    await this._service.addCoverImageAlbum(id, filename);
+
+    const response = h.response({
+      status: 'success',
+      message: 'Sampul berhasil diunggah',
+    });
+    response.code(201);
+    return response;
   }
 }
 
