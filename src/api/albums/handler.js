@@ -4,11 +4,22 @@ const autoBind = require('auto-bind');
 const config = require('../../utils/config');
 
 class AlbumsHandler {
-  constructor(service, validator, storageService, uploadValidator) {
+  constructor(
+    service,
+    validator,
+    storageService,
+    uploadValidator,
+    usersService,
+    userAlbumLikesService,
+    cacheService,
+  ) {
     this._service = service;
     this._validator = validator;
     this._storageService = storageService;
     this._uploadValidator = uploadValidator;
+    this._usersService = usersService;
+    this._userAlbumLikesService = userAlbumLikesService;
+    this._cacheService = cacheService;
 
     autoBind(this);
   }
@@ -44,8 +55,8 @@ class AlbumsHandler {
         name: album.album.name,
         year: album.album.year,
         coverUrl: cover,
+        songs: album.songs,
       },
-      songs: album.songs,
     };
 
     return {
@@ -95,6 +106,55 @@ class AlbumsHandler {
       message: 'Sampul berhasil diunggah',
     });
     response.code(201);
+    return response;
+  }
+
+  async postUserAlbumLikeHandler(request, h) {
+    const { id } = request.auth.credentials;
+    const { id: albumId } = request.params;
+
+    await this._usersService.getUserById(id);
+    await this._service.verifyAlbumId(albumId);
+    await this._userAlbumLikesService.verifyUserAlbumLike(id, albumId);
+    await this._userAlbumLikesService.addLike(id, albumId);
+
+    const response = h.response({
+      status: 'success',
+      message: 'Anda menyukai album ini',
+    });
+
+    response.code(201);
+    return response;
+  }
+
+  async deleteUserAlbumLikeHandler(request) {
+    const { id } = request.auth.credentials;
+    const { id: albumId } = request.params;
+
+    await this._userAlbumLikesService.deleteLike(id, albumId);
+
+    return {
+      status: 'success',
+      message: 'Anda telah batal menyukai album ini',
+    };
+  }
+
+  async getAlbumLikesHandler(request, h) {
+    const { id } = request.params;
+    const check = await this._cacheService.check(`likes:${id}`);
+    const { likes } = await this._userAlbumLikesService.getLikes(id);
+
+    const response = h.response({
+      status: 'success',
+      data: {
+        likes: parseInt(likes, 10),
+      },
+    });
+
+    if (check === true) {
+      response.header('X-Data-Source', 'cache');
+    }
+
     return response;
   }
 }

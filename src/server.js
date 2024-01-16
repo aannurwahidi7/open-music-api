@@ -14,6 +14,7 @@ const ClientError = require('./exceptions/ClientError');
 const albums = require('./api/albums');
 const AlbumsService = require('./services/AlbumsService');
 const AlbumsValidator = require('./validator/albums');
+const UserAlbumLikesService = require('./services/UserAlbumLikesService');
 
 const songs = require('./api/songs');
 const SongsService = require('./services/SongsService');
@@ -45,17 +46,23 @@ const ExportsValidator = require('./validator/exports');
 const StorageService = require('./services/storage/StorageService');
 const UploadValidator = require('./validator/uploads');
 
+const CacheService = require('./services/redis/CacheService');
+
 const init = async () => {
+  const cacheService = new CacheService();
+
   const usersService = new UsersService();
   const collaborationsService = new CollaborationsService(usersService);
+  const authenticationsService = new AuthenticationsService();
 
   const storageService = new StorageService(path.resolve(__dirname, 'api/albums/file/images'));
   const albumsService = new AlbumsService();
+  const userAlbumLikesService = new UserAlbumLikesService(cacheService);
+
   const songsService = new SongsService();
   const playlistsService = new PlaylistsService(collaborationsService);
   const playlistSongsService = new PlaylistSongsService(songsService);
   const playlistSongsActivitiesService = new PlaylistSongsActivitiesService();
-  const authenticationsService = new AuthenticationsService();
 
   const server = Hapi.server({
     port: config.app.port,
@@ -100,6 +107,9 @@ const init = async () => {
         validator: AlbumsValidator,
         storageService,
         uploadValidator: UploadValidator,
+        usersService,
+        userAlbumLikesService,
+        cacheService,
       },
     },
     {
@@ -155,7 +165,6 @@ const init = async () => {
 
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
-    console.log(response);
 
     if (response instanceof Error) {
       // penanganan error secara internal
